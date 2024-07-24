@@ -200,7 +200,7 @@ def main(args):
 
     if global_rank == 0 and args.log_dir is not None and not args.eval:
         os.makedirs(args.log_dir, exist_ok=True)
-        log_writer = SummaryWriter(log_dir=args.log_dir+args.task)
+        log_writer = SummaryWriter(log_dir=args.log_dir+f"/{args.task}_Logs/")
     else:
         log_writer = None
 
@@ -333,7 +333,7 @@ def main(args):
             args=args
         )
 
-        val_stats,val_auc_roc = evaluate(data_loader_val, model, device,args.task,epoch, mode='val',num_class=args.nb_classes)
+        val_stats,val_auc_roc = evaluate(data_loader_val, model, device, args.task, Path(args.output_dir), epoch, mode='val', num_class=args.nb_classes)
         if max_auc<val_auc_roc:
             max_auc = val_auc_roc
             
@@ -354,16 +354,15 @@ def main(args):
         if args.output_dir and misc.is_main_process():
             if log_writer is not None:
                 log_writer.flush()
-            with open(os.path.join(args.output_dir, "log.txt"), mode="a", encoding="utf-8") as f:
+            with open(os.path.join(args.output_dir, args.task, "log.txt"), mode="a", encoding="utf-8") as f:
                 f.write(json.dumps(log_stats) + "\n")
 
                 
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
-    print('Training time {}'.format(total_time_str))
-    state_dict_best = torch.load(args.task+'checkpoint-best.pth', map_location='cpu')
+    state_dict_best = torch.load(Path(args.output_dir)/args.task/str(args.task+'_checkpoint-best.pth'), map_location='cpu')
     model_without_ddp.load_state_dict(state_dict_best['model'])
-    test_stats,auc_roc = evaluate(data_loader_test, model_without_ddp, device,args.task,epoch=0, mode='test',num_class=args.nb_classes)
+    test_stats,auc_roc = evaluate(data_loader_test, model_without_ddp, device, args.task, Path(args.output_dir), epoch=0, mode='test',num_class=args.nb_classes)
 
 if __name__ == '__main__':
     args = get_args_parser()

@@ -137,14 +137,14 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
 
 
 @torch.no_grad()
-def evaluate(data_loader, model, device, task, epoch, mode, num_class):
+def evaluate(data_loader, model, device, task, outputdir, epoch, mode, num_class):
     criterion = torch.nn.CrossEntropyLoss()
 
     metric_logger = misc.MetricLogger(delimiter="  ")
     header = 'Test:'
     
     if not os.path.exists(task):
-        os.makedirs(task)
+        os.makedirs(outputdir/task, exist_ok = True)
 
     prediction_decode_list = []
     prediction_list = []
@@ -191,7 +191,7 @@ def evaluate(data_loader, model, device, task, epoch, mode, num_class):
     metric_logger.synchronize_between_processes()
     
     print('Sklearn Metrics - Acc: {:.4f} AUC-roc: {:.4f} AUC-pr: {:.4f} F1-score: {:.4f} MCC: {:.4f}'.format(acc, auc_roc, auc_pr, F1, mcc)) 
-    results_path = task+'_metrics_{}.csv'.format(mode)
+    results_path = outputdir/task/str(task+f'_metrics_{mode}.csv')
     with open(results_path,mode='a',newline='',encoding='utf8') as cfa:
         wf = csv.writer(cfa)
         data2=[[acc,sensitivity,specificity,precision,auc_roc,auc_pr,F1,mcc,metric_logger.loss]]
@@ -202,7 +202,7 @@ def evaluate(data_loader, model, device, task, epoch, mode, num_class):
     if mode=='test':
         cm = ConfusionMatrix(actual_vector=true_label_decode_list, predict_vector=prediction_decode_list)
         cm.plot(cmap=plt.cm.Blues,number_label=True,normalized=True,plot_lib="matplotlib")
-        plt.savefig(task+'confusion_matrix_test.jpg',dpi=600,bbox_inches ='tight')
+        plt.savefig(outputdir/task/'confusion_matrix_test.jpg',dpi=600,bbox_inches ='tight')
     
     return {k: meter.global_avg for k, meter in metric_logger.meters.items()},auc_roc
 

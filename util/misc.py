@@ -290,7 +290,7 @@ def save_model(args, epoch, model, model_without_ddp, optimizer, loss_scaler):
     output_dir = Path(args.output_dir)
     epoch_name = str(epoch)
     if loss_scaler is not None:
-        checkpoint_paths = [args.task+'checkpoint-best.pth']
+        checkpoint_paths = [output_dir/args.task/str(args.task+'_checkpoint-best.pth')]
         for checkpoint_path in checkpoint_paths:
             to_save = {
                 'model': model_without_ddp.state_dict(),
@@ -303,7 +303,7 @@ def save_model(args, epoch, model, model_without_ddp, optimizer, loss_scaler):
             save_on_master(to_save, checkpoint_path)
     else:
         client_state = {'epoch': epoch}
-        model.save_checkpoint(save_dir=args.task, tag="checkpoint-best", client_state=client_state)
+        model.save_checkpoint(save_dir=output_dir/args.task, tag="checkpoint-best", client_state=client_state)
 
 
 def save_model_pretrain(args, epoch, model, model_without_ddp, optimizer, loss_scaler):
