@@ -1,5 +1,5 @@
 python -m torch.distributed.launch --nproc_per_node=1 --master_port=48798 main_finetune.py \
-    --batch_size 3 \
+    --batch_size 32 \
     --world_size 1 \
     --model vit_large_patch16 \
     --epochs 50 \
@@ -11,11 +11,15 @@ python -m torch.distributed.launch --nproc_per_node=1 --master_port=48798 main_f
     --log_dir ../Data/Results/CustomRETFound512/ \
     --output_dir ../Data/Results/ \
     --finetune ../Data/RETFound_cfp_weights.pth \
-    --input_size 512
+    --input_size 224
 
 # default
 # --batch_size 32 \
 # --input_size 224
+
+# large 512
+# --batch_size 3 \
+# --input_size 512
 
 # 40 -> 21481
 # 44 -> 23137* this one
