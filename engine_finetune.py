@@ -20,6 +20,7 @@ from pycm import *
 import matplotlib.pyplot as plt
 import numpy as np
 
+from torchmetrics.functional.classification import cohen_kappa
 
 
 
@@ -187,14 +188,16 @@ def evaluate(data_loader, model, device, task, outputdir, epoch, mode, num_class
     
     auc_roc = roc_auc_score(true_label_onehot_list, prediction_list,multi_class='ovr',average='macro')
     auc_pr = average_precision_score(true_label_onehot_list, prediction_list,average='macro')          
-            
+    
+    co_kap = cohen_kappa(torch.from_numpy(prediction_decode_list), torch.from_numpy(true_label_decode_list), task="multiclass", num_classes=num_class).item()
+    
     metric_logger.synchronize_between_processes()
     
-    print('Sklearn Metrics - Acc: {:.4f} AUC-roc: {:.4f} AUC-pr: {:.4f} F1-score: {:.4f} MCC: {:.4f}'.format(acc, auc_roc, auc_pr, F1, mcc)) 
+    print('Sklearn Metrics - Acc: {:.4f} AUC-roc: {:.4f} AUC-pr: {:.4f} F1-score: {:.4f} MCC: {:.4f} Cohens kappa: {:.4f}'.format(acc, auc_roc, auc_pr, F1, mcc, co_kap)) 
     results_path = outputdir/task/str(task+f'_metrics_{mode}.csv')
     with open(results_path,mode='a',newline='',encoding='utf8') as cfa:
         wf = csv.writer(cfa)
-        data2=[[acc,sensitivity,specificity,precision,auc_roc,auc_pr,F1,mcc,metric_logger.loss]]
+        data2=[[acc,sensitivity,specificity,precision,auc_roc,auc_pr,F1,mcc,co_kap,metric_logger.loss]]
         for i in data2:
             wf.writerow(i)
             

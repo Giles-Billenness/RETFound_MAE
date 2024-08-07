@@ -17,7 +17,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 import timm
 
-assert timm.__version__ == "0.3.2" # version check
+# assert timm.__version__ == "0.3.2" # version check
 from timm.models.layers import trunc_normal_
 from timm.data.mixup import Mixup
 from timm.loss import LabelSmoothingCrossEntropy, SoftTargetCrossEntropy
@@ -152,6 +152,7 @@ def get_args_parser():
 
 
 def main(args):
+    # print(torch.cuda.is_available())
     misc.init_distributed_mode(args)
 
     print('job dir: {}'.format(os.path.dirname(os.path.realpath(__file__))))
@@ -238,39 +239,68 @@ def main(args):
             prob=args.mixup_prob, switch_prob=args.mixup_switch_prob, mode=args.mixup_mode,
             label_smoothing=args.smoothing, num_classes=args.nb_classes)
     
-    model = models_vit.__dict__[args.model](
-        img_size=args.input_size,
-        num_classes=args.nb_classes,
-        drop_path_rate=args.drop_path,
-        global_pool=args.global_pool,
-    )
+    #MODEL ----------------------------------------------------------------------------------------
+    # ViT model - 307M Parameters
+    if args.model == 'vit_large_patch16':
+        model = models_vit.__dict__[args.model](
+            img_size=args.input_size,
+            num_classes=args.nb_classes,
+            drop_path_rate=args.drop_path,
+            global_pool=args.global_pool,
+        )
 
-    if args.finetune and not args.eval:
-        checkpoint = torch.load(args.finetune, map_location='cpu')
+    #Swinv2 large model with 256/384 image size - 197M Parameters
+    if args.model == 'swinv2_large':
+        model = timm.create_model('swinv2_large_window12to24_192to384.ms_in22k_ft_in1k', pretrained=True, img_size=args.input_size, window_size=7, num_classes=args.nb_classes)
+        # model = timm.create_model('swinv2_base_window12to16_192to256.ms_in22k_ft_in1k', pretrained=True, num_classes=5)#default img_size=224
+    
+    #Swinv1 model with 224/384 image size
+    # model = timm.create_model('swin_large_patch4_window7_224.ms_in22k', pretrained=True, num_classes=5)
+    #224 - 7
+    #256 - 8, 16
+    #192 - 12
+    #384 - 12, 24
+    #512 - 16
+    
+    #CNN architectures referance
+    #ResNet50 model with 224 image size - 25M Parameters
+    if args.model == 'resnet50':
+        model = timm.create_model('resnet50', pretrained=True, num_classes=args.nb_classes)
+    #ConvNextV2 model with 224 image size - 198M Parameters
+    if args.model == 'convnextv2_large':
+        model = timm.create_model('convnextv2_large', pretrained=True, num_classes=args.nb_classes)#, input_size= (3, 224, 224)
+    
+    # print(model)
 
-        print("Load pre-trained checkpoint from: %s" % args.finetune)
-        checkpoint_model = checkpoint['model']
-        state_dict = model.state_dict()
-        for k in ['head.weight', 'head.bias']:
-            if k in checkpoint_model and checkpoint_model[k].shape != state_dict[k].shape:
-                print(f"Removing key {k} from pretrained checkpoint")
-                del checkpoint_model[k]
+    if args.model == 'vit_large_patch16':
+        if args.finetune and not args.eval:
+            checkpoint = torch.load(args.finetune, map_location='cpu')
 
-        # interpolate position embedding
-        interpolate_pos_embed(model, checkpoint_model)
+            print("Load pre-trained checkpoint from: %s" % args.finetune)
+            checkpoint_model = checkpoint['model']
+            state_dict = model.state_dict()
+            for k in ['head.weight', 'head.bias']:
+                if k in checkpoint_model and checkpoint_model[k].shape != state_dict[k].shape:
+                    print(f"Removing key {k} from pretrained checkpoint")
+                    del checkpoint_model[k]
 
-        # load pre-trained model
-        msg = model.load_state_dict(checkpoint_model, strict=False)
-        print(msg)
+            # interpolate position embedding
+            interpolate_pos_embed(model, checkpoint_model)
 
-        if args.global_pool:
-            assert set(msg.missing_keys) == {'head.weight', 'head.bias', 'fc_norm.weight', 'fc_norm.bias'}
-        else:
-            assert set(msg.missing_keys) == {'head.weight', 'head.bias'}
+            # load pre-trained model
+            msg = model.load_state_dict(checkpoint_model, strict=False)
+            print(msg)
 
-        # manually initialize fc layer
-        trunc_normal_(model.head.weight, std=2e-5)
+            if args.global_pool:
+                assert set(msg.missing_keys) == {'head.weight', 'head.bias', 'fc_norm.weight', 'fc_norm.bias'}
+            else:
+                assert set(msg.missing_keys) == {'head.weight', 'head.bias'}
 
+            # manually initialize fc layer
+            trunc_normal_(model.head.weight, std=2e-5)
+
+
+    
     model.to(device)
 
     model_without_ddp = model
@@ -295,11 +325,15 @@ def main(args):
         model_without_ddp = model.module
 
     # build optimizer with layer-wise lr decay (lrd)
-    param_groups = lrd.param_groups_lrd(model_without_ddp, args.weight_decay,
-        no_weight_decay_list=model_without_ddp.no_weight_decay(),
-        layer_decay=args.layer_decay
-    )
-    optimizer = torch.optim.AdamW(param_groups, lr=args.lr)
+    if args.model == 'vit_large_patch16' or args.model == 'swinv2_large':
+        param_groups = lrd.param_groups_lrd(model_without_ddp, args.weight_decay,
+            no_weight_decay_list=model_without_ddp.no_weight_decay(),
+            layer_decay=args.layer_decay
+        )
+        optimizer = torch.optim.AdamW(param_groups, lr=args.lr)
+    else:
+        optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)# HERE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
     loss_scaler = NativeScaler()
 
     if mixup_fn is not None:
