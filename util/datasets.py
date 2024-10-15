@@ -8,15 +8,61 @@ from torchvision import datasets, transforms
 from timm.data import create_transform
 from timm.data.constants import IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD
 
+from PIL import Image
+# from torchvision.io import read_image
+import pandas as pd
+from torch.utils.data import Dataset
 
 def build_dataset(is_train, args):
-    
     transform = build_transform(is_train, args)
     root = os.path.join(args.data_path, is_train)
-    dataset = datasets.ImageFolder(root, transform=transform)
+    
+    if args.dataset == 'stroke':
+        dataset = StrokeDataset(csv_file=os.path.join(args.data_path, f'{is_train}_split.csv'), transform=transform)
+    else:
+        dataset = datasets.ImageFolder(root, transform=transform)
+    
 
     return dataset
 
+
+# Define a custom dataset class
+class StrokeDataset(Dataset):
+    def __init__(self, csv_file, transform=None):
+        # Load the CSV file into a pandas DataFrame
+        self.data = pd.read_csv(csv_file)
+        self.transform = transform
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, idx):
+        # Get the image path and class label (stroke_5y) for the current index
+        img_path = self.data.iloc[idx]['img_path']
+        stroke_label = int(self.data.iloc[idx]['stroke_5y'])  # Convert label to int (0 or 1)
+
+        # Load the image
+        image = Image.open(img_path).convert('RGB')
+        # image = read_image(img_path)
+
+        # Apply transforms if provided
+        if self.transform:
+            image = self.transform(image)
+
+        # Commented out other columns for later use
+        # age = self.data.iloc[idx]['age']
+        # sex = self.data.iloc[idx]['sex']
+        # ethnicity = self.data.iloc[idx]['ethnicity']
+        # dm = self.data.iloc[idx]['dm']
+        # htn = self.data.iloc[idx]['htn']
+        # hardware_model = self.data.iloc[idx]['hardwareModelName']
+
+        # For now, return only the image and the stroke label
+        # sample = {
+        #     'image': image,
+        #     'label': stroke_label
+        # }
+
+        return image, stroke_label#sample #
 
 def build_transform(is_train, args):
     mean = IMAGENET_DEFAULT_MEAN

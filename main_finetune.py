@@ -147,6 +147,10 @@ def get_args_parser():
     parser.add_argument('--dist_on_itp', action='store_true')
     parser.add_argument('--dist_url', default='env://',
                         help='url used to set up distributed training')
+    
+    
+    parser.add_argument('--dataset', default='fundus',
+                        help='id dataset for dataloading')
 
     return parser
 
@@ -253,7 +257,10 @@ def main(args):
     if args.model == 'swinv2_large':
         model = timm.create_model('swinv2_large_window12to24_192to384.ms_in22k_ft_in1k', pretrained=True, img_size=args.input_size, window_size=7, num_classes=args.nb_classes)
         # model = timm.create_model('swinv2_base_window12to16_192to256.ms_in22k_ft_in1k', pretrained=True, num_classes=5)#default img_size=224
-    
+
+    #Swinv2 large model with modified 512 image size - 197M Parameters
+    if args.model == 'swinv2_large512':
+        model = timm.create_model('swinv2_large_window12to24_192to384.ms_in22k_ft_in1k', pretrained=True, img_size=args.input_size, window_size=16, num_classes=args.nb_classes)
     #Swinv1 model with 224/384 image size
     # model = timm.create_model('swin_large_patch4_window7_224.ms_in22k', pretrained=True, num_classes=5)
     #224 - 7
