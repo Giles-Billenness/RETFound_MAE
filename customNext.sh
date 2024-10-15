@@ -8,9 +8,9 @@ python -m torch.distributed.launch --nproc_per_node=1 --master_port=48798 main_f
     --nb_classes 5 \
     --data_path ../Data/Kaggle/augmented_resized_V2/ \
     --task CustomConvnext \
-    --log_dir ../Data/Results/CustomConvnext/ \
-    --output_dir ../Data/Results/ \
-    --finetune ../Data/RETFound_cfp_weights.pth \
+    --log_dir ../Results/CustomConvnext/ \
+    --output_dir ../Results/ \
+    --finetune ../Weights/RETFound_cfp_weights.pth \
     --clip_grad 0.8 \
     --input_size 224
 
