@@ -14,7 +14,8 @@ import timm.models.vision_transformer
 class VisionTransformer(timm.models.vision_transformer.VisionTransformer):
     """ Vision Transformer with support for global average pooling
     """
-    def __init__(self, global_pool=False, **kwargs):
+
+    def __init__(self, head_dropout=0.0, num_risk_factors=5, global_pool=False, **kwargs):
         super(VisionTransformer, self).__init__(**kwargs)
 
         self.global_pool = global_pool
@@ -25,11 +26,18 @@ class VisionTransformer(timm.models.vision_transformer.VisionTransformer):
 
             del self.norm  # remove the original norm
 
+        self.linear1 = nn.Linear(embed_dim, 32, bias=True)
+        self.activation = nn.ReLU(inplace=True)
+        self.dropout = nn.Dropout(p=head_dropout)
+        # +5 metadata features
+        self.linear2 = nn.Linear(32 + num_risk_factors, 2, bias=True)
+
     def forward_features(self, x):
         B = x.shape[0]
         x = self.patch_embed(x)
 
-        cls_tokens = self.cls_token.expand(B, -1, -1)  # stole cls_tokens impl from Phil Wang, thanks
+        # stole cls_tokens impl from Phil Wang, thanks
+        cls_tokens = self.cls_token.expand(B, -1, -1)
         x = torch.cat((cls_tokens, x), dim=1)
         x = x + self.pos_embed
         x = self.pos_drop(x)
@@ -46,6 +54,21 @@ class VisionTransformer(timm.models.vision_transformer.VisionTransformer):
 
         return outcome
 
+    def forward_head(self, x, risk_factors):
+        # output_mi = self.head_mi(x)
+        x = self.linear1(x)
+        x = self.activation(x)
+        x = self.dropout(x)
+        x = torch.cat((x, risk_factors), dim=1)
+        x = self.linear2(x)
+        return x
+
+    def forward(self, x, risk_factors):
+        x = self.forward_features(x)
+        # x = torch.cat((x, risk_factors), dim=1)
+        output_mi = self.forward_head(x, risk_factors)
+        return output_mi
+
 
 def vit_large_patch16(**kwargs):
     model = VisionTransformer(
@@ -53,3 +76,18 @@ def vit_large_patch16(**kwargs):
         norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
     return model
 
+
+# class Prediction_head(nn.Module):
+#     """(convolution => [BN] => ReLU) * 2"""
+
+#     def __init__(self, embed_dim):
+#         super().__init__()
+#         self.double_linear = nn.Sequential(
+#             nn.Linear(embed_dim+5, 32, bias=True),
+#             nn.ReLU(inplace=True),
+#             nn.Dropout(p=0.5),
+#             nn.Linear(32, 2, bias=True)
+#         )
+
+#     def forward(self, x):
+#         return self.double_linear(x)

@@ -30,11 +30,13 @@ from util.misc import NativeScalerWithGradNormCount as NativeScaler
 
 import models_vit
 
+
 from engine_finetune import train_one_epoch, evaluate
 
 
 def get_args_parser():
-    parser = argparse.ArgumentParser('MAE fine-tuning for image classification', add_help=False)
+    parser = argparse.ArgumentParser(
+        'MAE fine-tuning for image classification', add_help=False)
     parser.add_argument('--batch_size', default=64, type=int,
                         help='Batch size per GPU (effective batch size is batch_size * accum_iter * # gpus')
     parser.add_argument('--epochs', default=50, type=int)
@@ -103,9 +105,9 @@ def get_args_parser():
                         help='How to apply mixup/cutmix params. Per "batch", "pair", or "elem"')
 
     # * Finetuning params
-    parser.add_argument('--finetune', default='',type=str,
+    parser.add_argument('--finetune', default='', type=str,
                         help='finetune from checkpoint')
-    parser.add_argument('--task', default='',type=str,
+    parser.add_argument('--task', default='', type=str,
                         help='finetune from checkpoint')
     parser.add_argument('--global_pool', action='store_true')
     parser.set_defaults(global_pool=True)
@@ -147,8 +149,7 @@ def get_args_parser():
     parser.add_argument('--dist_on_itp', action='store_true')
     parser.add_argument('--dist_url', default='env://',
                         help='url used to set up distributed training')
-    
-    
+
     parser.add_argument('--dataset', default='fundus',
                         help='id dataset for dataloading')
 
@@ -188,20 +189,21 @@ def main(args):
                       'This will slightly alter validation results as extra duplicate entries are added to achieve '
                       'equal num of samples per-process.')
             sampler_val = torch.utils.data.DistributedSampler(
-                dataset_val, num_replicas=num_tasks, rank=global_rank, shuffle=True)  # shuffle=True to reduce monitor bias
+                # shuffle=True to reduce monitor bias
+                dataset_val, num_replicas=num_tasks, rank=global_rank, shuffle=True)
         else:
             sampler_val = torch.utils.data.SequentialSampler(dataset_val)
-            
+
         if args.dist_eval:
             if len(dataset_test) % num_tasks != 0:
                 print('Warning: Enabling distributed evaluation with an eval dataset not divisible by process number. '
                       'This will slightly alter validation results as extra duplicate entries are added to achieve '
                       'equal num of samples per-process.')
             sampler_test = torch.utils.data.DistributedSampler(
-                dataset_test, num_replicas=num_tasks, rank=global_rank, shuffle=True)  # shuffle=True to reduce monitor bias
+                # shuffle=True to reduce monitor bias
+                dataset_test, num_replicas=num_tasks, rank=global_rank, shuffle=True)
         else:
             sampler_test = torch.utils.data.SequentialSampler(dataset_test)
-            
 
     if global_rank == 0 and args.log_dir is not None and not args.eval:
         os.makedirs(args.log_dir, exist_ok=True)
@@ -232,8 +234,7 @@ def main(args):
         pin_memory=args.pin_mem,
         drop_last=False
     )
-    
-    
+
     mixup_fn = None
     mixup_active = args.mixup > 0 or args.cutmix > 0. or args.cutmix_minmax is not None
     if mixup_active:
@@ -242,8 +243,8 @@ def main(args):
             mixup_alpha=args.mixup, cutmix_alpha=args.cutmix, cutmix_minmax=args.cutmix_minmax,
             prob=args.mixup_prob, switch_prob=args.mixup_switch_prob, mode=args.mixup_mode,
             label_smoothing=args.smoothing, num_classes=args.nb_classes)
-    
-    #MODEL ----------------------------------------------------------------------------------------
+
+    # MODEL ----------------------------------------------------------------------------------------
     # ViT model - 307M Parameters
     if args.model == 'vit_large_patch16':
         model = models_vit.__dict__[args.model](
@@ -253,9 +254,10 @@ def main(args):
             global_pool=args.global_pool,
         )
 
-    #Swinv2 large model with 256/384 image size - 197M Parameters
+    # Swinv2 large model with 256/384 image size - 197M Parameters
     if args.model == 'swinv2_large' or args.model == 'swinv2_largeNODECAY':
-        model = timm.create_model('swinv2_large_window12to24_192to384.ms_in22k_ft_in1k', pretrained=True, img_size=args.input_size, window_size=7, num_classes=args.nb_classes)
+        model = timm.create_model('swinv2_large_window12to24_192to384.ms_in22k_ft_in1k',
+                                  pretrained=True, img_size=args.input_size, window_size=7, num_classes=args.nb_classes)
         # model = timm.create_model('swinv2_base_window12to16_192to256.ms_in22k_ft_in1k', pretrained=True, num_classes=5)#default img_size=224
     if args.model == 'swinv2_largeDROPPATH':
         model = timm.create_model('swinv2_large_window12to24_192to384.ms_in22k_ft_in1k',
@@ -263,25 +265,50 @@ def main(args):
                                   drop_path_rate=args.drop_path,
                                   window_size=7, num_classes=args.nb_classes)
 
-    #Swinv2 large model with modified 512 image size - 197M Parameters
+    # Swinv2 large model with modified 512 image size - 197M Parameters
     if args.model == 'swinv2_large512':
-        model = timm.create_model('swinv2_large_window12to24_192to384.ms_in22k_ft_in1k', pretrained=True, img_size=args.input_size, window_size=16, num_classes=args.nb_classes)
-    #Swinv1 model with 224/384 image size
+        model = timm.create_model('swinv2_large_window12to24_192to384.ms_in22k_ft_in1k',
+                                  pretrained=True, img_size=args.input_size, window_size=16, num_classes=args.nb_classes)
+    # Swinv1 model with 224/384 image size
     # model = timm.create_model('swin_large_patch4_window7_224.ms_in22k', pretrained=True, num_classes=5)
-    #224 - 7
-    #256 - 8, 16
-    #192 - 12
-    #384 - 12, 24
-    #512 - 16
-    
-    #CNN architectures referance
-    #ResNet50 model with 224 image size - 25M Parameters
+    # 224 - 7
+    # 256 - 8, 16
+    # 192 - 12
+    # 384 - 12, 24
+    # 512 - 16
+    # print(f"args model is: \n{args.model}")
+    if args.model == 'swinv2_large_224_META':
+        from models_swin import swinv2_large_window12to24_192to384_META
+        # print("setting the model as meta swin!")
+        model = swinv2_large_window12to24_192to384_META(pretrained=True,
+                                                        img_size=args.input_size,
+                                                        window_size=7,
+                                                        num_classes=0,  # to stop the model from adding the final layer
+                                                        drop_path_rate=args.drop_path,)
+        # Manually replace the head with nn.Identity() so the false head does nothing in the forward pass
+        model.head = torch.nn.Identity()
+        # print(model)
+
+    if args.model == 'resnet50_META':
+        from models_r50 import resnet50_META
+        model = resnet50_META(pretrained=True,
+                              num_classes=0,  # to stop the model from adding the final layer
+                              drop_path_rate=args.drop_path,)
+        # Manually replace the head with nn.Identity() so the false head does nothing in the forward pass
+        model.head = torch.nn.Identity()
+        # print(model)
+
+    # CNN architectures referance
+    # ResNet50 model with 224 image size - 25M Parameters
     if args.model == 'resnet50':
-        model = timm.create_model('resnet50', pretrained=True, num_classes=args.nb_classes)
-    #ConvNextV2 model with 224 image size - 198M Parameters
+        model = timm.create_model(
+            'resnet50', pretrained=True, num_classes=args.nb_classes)
+    # ConvNextV2 model with 224 image size - 198M Parameters
     if args.model == 'convnextv2_large':
-        model = timm.create_model('convnextv2_large', pretrained=True, num_classes=args.nb_classes)#, input_size= (3, 224, 224)
-    
+        # , input_size= (3, 224, 224)
+        model = timm.create_model(
+            'convnextv2_large', pretrained=True, num_classes=args.nb_classes)
+
     # print(model)
 
     if args.model == 'vit_large_patch16':
@@ -304,25 +331,27 @@ def main(args):
             print(msg)
 
             if args.global_pool:
-                assert set(msg.missing_keys) == {'head.weight', 'head.bias', 'fc_norm.weight', 'fc_norm.bias'}
+                assert set(msg.missing_keys) >= {  # change to is subset/superset of, as the linear layer keys are not required
+                    'head.weight', 'head.bias', 'fc_norm.weight', 'fc_norm.bias'}
             else:
-                assert set(msg.missing_keys) == {'head.weight', 'head.bias'}
+                assert set(msg.missing_keys) >= {'head.weight', 'head.bias'}
 
             # manually initialize fc layer
+            # hmmmmmmmmmm remove?????????
             trunc_normal_(model.head.weight, std=2e-5)
+            model.head = torch.nn.Identity()  # Disable classification head
 
-
-    
     model.to(device)
 
     model_without_ddp = model
-    n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    n_parameters = sum(p.numel()
+                       for p in model.parameters() if p.requires_grad)
 
     print("Model = %s" % str(model_without_ddp))
     print('number of params (M): %.2f' % (n_parameters / 1.e6))
 
     eff_batch_size = args.batch_size * args.accum_iter * misc.get_world_size()
-    
+
     if args.lr is None:  # only base_lr is specified
         args.lr = args.blr * eff_batch_size / 256
 
@@ -333,18 +362,22 @@ def main(args):
     print("effective batch size: %d" % eff_batch_size)
 
     if args.distributed:
-        model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu])
+        model = torch.nn.parallel.DistributedDataParallel(
+            model, device_ids=[args.gpu],
+            find_unused_parameters=True,  # Find issue here for Swin
+        )
         model_without_ddp = model.module
 
     # build optimizer with layer-wise lr decay (lrd)
     if args.model == 'vit_large_patch16' or args.model == 'swinv2_large' or args.model == 'swinv2_largeDROPPATH':
         param_groups = lrd.param_groups_lrd(model_without_ddp, args.weight_decay,
-            no_weight_decay_list=model_without_ddp.no_weight_decay(),
-            layer_decay=args.layer_decay
-        )
+                                            no_weight_decay_list=model_without_ddp.no_weight_decay(),
+                                            layer_decay=args.layer_decay
+                                            )
         optimizer = torch.optim.AdamW(param_groups, lr=args.lr)
     else:
-        optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)# HERE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        # HERE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
 
     loss_scaler = NativeScaler()
 
@@ -358,10 +391,12 @@ def main(args):
 
     print("criterion = %s" % str(criterion))
 
-    misc.load_model(args=args, model_without_ddp=model_without_ddp, optimizer=optimizer, loss_scaler=loss_scaler)
+    misc.load_model(args=args, model_without_ddp=model_without_ddp,
+                    optimizer=optimizer, loss_scaler=loss_scaler)
 
     if args.eval:
-        test_stats,auc_roc = evaluate(data_loader_test, model, device, args.task, epoch=0, mode='test',num_class=args.nb_classes)
+        test_stats, auc_roc = evaluate(
+            data_loader_test, model, device, args.task, epoch=0, mode='test', num_class=args.nb_classes)
         exit(0)
 
     print(f"Start training for {args.epochs} epochs")
@@ -379,23 +414,24 @@ def main(args):
             args=args
         )
 
-        val_stats,val_auc_roc = evaluate(data_loader_val, model, device, args.task, Path(args.output_dir), epoch, mode='val', num_class=args.nb_classes)
-        if max_auc<val_auc_roc:
+        val_stats, val_auc_roc = evaluate(data_loader_val, model, device, args.task, Path(
+            args.output_dir), epoch, mode='val', num_class=args.nb_classes)
+        if max_auc < val_auc_roc:
             max_auc = val_auc_roc
-            
+
             if args.output_dir:
                 misc.save_model(
                     args=args, model=model, model_without_ddp=model_without_ddp, optimizer=optimizer,
                     loss_scaler=loss_scaler, epoch=epoch)
-        
+
         if log_writer is not None:
             log_writer.add_scalar('perf/val_acc1', val_stats['acc1'], epoch)
             log_writer.add_scalar('perf/val_auc', val_auc_roc, epoch)
             log_writer.add_scalar('perf/val_loss', val_stats['loss'], epoch)
-            
+
         log_stats = {**{f'train_{k}': v for k, v in train_stats.items()},
-                        'epoch': epoch,
-                        'n_parameters': n_parameters}
+                     'epoch': epoch,
+                     'n_parameters': n_parameters}
 
         if args.output_dir and misc.is_main_process():
             if log_writer is not None:
@@ -403,12 +439,14 @@ def main(args):
             with open(os.path.join(args.output_dir, args.task, "log.txt"), mode="a", encoding="utf-8") as f:
                 f.write(json.dumps(log_stats) + "\n")
 
-                
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
-    state_dict_best = torch.load(Path(args.output_dir)/args.task/str(args.task+'_checkpoint-best.pth'), map_location='cpu')
+    state_dict_best = torch.load(Path(
+        args.output_dir)/args.task/str(args.task+'_checkpoint-best.pth'), map_location='cpu')
     model_without_ddp.load_state_dict(state_dict_best['model'])
-    test_stats,auc_roc = evaluate(data_loader_test, model_without_ddp, device, args.task, Path(args.output_dir), epoch=0, mode='test',num_class=args.nb_classes)
+    test_stats, auc_roc = evaluate(data_loader_test, model_without_ddp, device, args.task, Path(
+        args.output_dir), epoch=0, mode='test', num_class=args.nb_classes)
+
 
 if __name__ == '__main__':
     args = get_args_parser()

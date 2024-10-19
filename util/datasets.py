@@ -12,16 +12,18 @@ from PIL import Image
 # from torchvision.io import read_image
 import pandas as pd
 from torch.utils.data import Dataset
+import torch
+
 
 def build_dataset(is_train, args):
     transform = build_transform(is_train, args)
     root = os.path.join(args.data_path, is_train)
-    
+
     if args.dataset == 'stroke':
-        dataset = StrokeDataset(csv_file=os.path.join(args.data_path, f'{is_train}_split.csv'), transform=transform)
+        dataset = StrokeDataset(csv_file=os.path.join(
+            args.data_path, f'{is_train}_split.csv'), transform=transform)
     else:
         dataset = datasets.ImageFolder(root, transform=transform)
-    
 
     return dataset
 
@@ -32,13 +34,15 @@ class StrokeDataset(Dataset):
         # Load the CSV file into a pandas DataFrame
         self.data = pd.read_csv(csv_file)
         self.transform = transform
+
     def __len__(self):
         return len(self.data)
 
     def __getitem__(self, idx):
         # Get the image path and class label (stroke_5y) for the current index
         img_path = self.data.iloc[idx]['img_path']
-        stroke_label = int(self.data.iloc[idx]['stroke_5y'])  # Convert label to int (0 or 1)
+        # Convert label to int (0 or 1)
+        stroke_label = int(self.data.iloc[idx]['stroke_5y'])
 
         # Load the image
         image = Image.open(img_path).convert('RGB')
@@ -49,26 +53,32 @@ class StrokeDataset(Dataset):
             image = self.transform(image)
 
         # Commented out other columns for later use
-        # age = self.data.iloc[idx]['age']
-        # sex = self.data.iloc[idx]['sex']
-        # ethnicity = self.data.iloc[idx]['ethnicity']
-        # dm = self.data.iloc[idx]['dm']
-        # htn = self.data.iloc[idx]['htn']
+        age = self.data.iloc[idx]['age_scaled']  # age_scaled, #age_bin, #age,
+        sex = self.data.iloc[idx]['sex']
+        ethnicity = self.data.iloc[idx]['ethnicity']
+        dm = self.data.iloc[idx]['dm']
+        htn = self.data.iloc[idx]['htn']
         # hardware_model = self.data.iloc[idx]['hardwareModelName']
 
-        # For now, return only the image and the stroke label
-        # sample = {
-        #     'image': image,
-        #     'label': stroke_label
-        # }
+        risk_factors = [age, sex, ethnicity, dm, htn]
 
-        return image, stroke_label#sample #
+        return {
+            'image': image,
+            'label': stroke_label,
+            'risk_factors': torch.tensor(risk_factors).type(torch.FloatTensor)
+            # 'age': age_scaled, #age_bin, #age,
+            # 'sex': sex,
+            # 'ethnicity': ethnicity,
+            # 'diabetes_mellitus': dm,
+            # 'hypertension': htn,
+        }
+
 
 def build_transform(is_train, args):
     mean = IMAGENET_DEFAULT_MEAN
     std = IMAGENET_DEFAULT_STD
     # train transform
-    if is_train=='train':
+    if is_train == 'train':
         # this should always dispatch to transforms_imagenet_train
         transform = create_transform(
             input_size=args.input_size,
@@ -92,7 +102,8 @@ def build_transform(is_train, args):
         crop_pct = 1.0
     size = int(args.input_size / crop_pct)
     t.append(
-        transforms.Resize(size, interpolation=transforms.InterpolationMode.BICUBIC), 
+        transforms.Resize(
+            size, interpolation=transforms.InterpolationMode.BICUBIC),
     )
     t.append(transforms.CenterCrop(args.input_size))
     t.append(transforms.ToTensor())
