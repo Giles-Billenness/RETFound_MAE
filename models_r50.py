@@ -16,13 +16,16 @@ class ResNet50WithMetadata(timm.models.resnet.ResNet):
     def __init__(self, head_dropout=0.0, num_risk_factors=5, **kwargs):
         super(ResNet50WithMetadata, self).__init__(**kwargs)
 
+        distil_neurons = 512  # 32
+
         self.global_pool = nn.AdaptiveAvgPool2d(1)
 
-        self.linear1 = nn.Linear(self.num_features, 32, bias=True)
+        self.linear1 = nn.Linear(self.num_features, distil_neurons, bias=True)
         self.activation = nn.ReLU(inplace=True)
         self.dropout = nn.Dropout(p=head_dropout)
         # Adjust for the number of risk factors
-        self.linear2 = nn.Linear(32 + num_risk_factors, 2, bias=True)
+        self.linear2 = nn.Linear(
+            distil_neurons + num_risk_factors, 2, bias=True)
 
     def forward(self, x, risk_factors):
         # Forward pass through the base ResNet layers
@@ -31,7 +34,7 @@ class ResNet50WithMetadata(timm.models.resnet.ResNet):
 
         # x = self.global_pool(x)
         x = x.mean(dim=[2, 3])  # ??????????????????????
-        print("Shape after pool:", x.shape)
+        # print("Shape after pool:", x.shape)
 
         # Flatten to (B, C)
         # x = x.view(x.size(0), -1)  # dont need when using x.mean

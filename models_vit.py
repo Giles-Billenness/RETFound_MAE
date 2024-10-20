@@ -26,11 +26,14 @@ class VisionTransformer(timm.models.vision_transformer.VisionTransformer):
 
             del self.norm  # remove the original norm
 
-        self.linear1 = nn.Linear(embed_dim, 32, bias=True)
+        distil_neurons = 512  # 32
+
+        self.linear1 = nn.Linear(embed_dim, distil_neurons, bias=True)
         self.activation = nn.ReLU(inplace=True)
         self.dropout = nn.Dropout(p=head_dropout)
         # +5 metadata features
-        self.linear2 = nn.Linear(32 + num_risk_factors, 2, bias=True)
+        self.linear2 = nn.Linear(
+            distil_neurons + num_risk_factors, 2, bias=True)
 
     def forward_features(self, x):
         B = x.shape[0]

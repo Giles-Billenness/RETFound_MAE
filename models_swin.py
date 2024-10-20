@@ -23,15 +23,18 @@ class SwinTransformerV2WithMetadata(SwinTransformerV2):
         # Global pooling to reduce spatial dimensions
         # self.global_pool = nn.AdaptiveAvgPool1d(1)  # ???????????????????
 
+        distil_neurons = 512  # 32
+
         # define pooling layer for dim reduction
         self.global_pool = nn.AdaptiveAvgPool2d(1)
 
         self.linear1 = nn.Linear(
-            self.num_features, 32, bias=True)  # For image features
+            self.num_features, distil_neurons, bias=True)  # For image features
         self.activation = nn.ReLU(inplace=True)
         self.dropout = nn.Dropout(p=head_dropout)
         # Add risk factor dimension
-        self.linear2 = nn.Linear(32 + num_risk_factors, 2, bias=True)
+        self.linear2 = nn.Linear(
+            distil_neurons + num_risk_factors, 2, bias=True)
 
     def forward(self, x, risk_factors):
         # Extract features from the image using the Swin Transformer layers
