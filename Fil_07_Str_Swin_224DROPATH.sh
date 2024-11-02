@@ -1,4 +1,4 @@
-python -m torch.distributed.launch --nproc_per_node=1 --master_port=48592 main_finetune.py \
+python -m torch.distributed.launch --nproc_per_node=1 --master_port=48793 main_finetune.py \
     --batch_size 32 \
     --world_size 1 \
     --model swinv2_largeDROPPATH \
@@ -6,11 +6,11 @@ python -m torch.distributed.launch --nproc_per_node=1 --master_port=48592 main_f
     --blr 5e-3 --layer_decay 0.65 \
     --weight_decay 0.05 --drop_path 0.2 \
     --nb_classes 2 \
-    --data_path /home/gbillenn/DissProj/Data/mainCSV/filePathChanged/ \
+    --data_path /home/gbillenn/DissProj/Data/mainCSV/filteredConvertedMain/N70 \
     --dataset stroke \
-    --task BinStr224SwinDROPPATH \
-    --log_dir ../Results/Full_Stroke_Test/BinStr224SwinDROPPATH/ \
-    --output_dir ../Results/Full_Stroke_Test/ \
+    --task FilStrSwin224DROPPATH \
+    --log_dir ../Results/Filtered_Stroke_07_Test/FilStrSwin224DROPPATH/ \
+    --output_dir ../Results/Filtered_Stroke_07_Test/ \
     --finetune ../Weights/RETFound_cfp_weights.pth \
     --input_size 224
 

@@ -1,4 +1,4 @@
-python -m torch.distributed.launch --nproc_per_node=1 --master_port=48791 main_finetune.py \
+python -m torch.distributed.launch --nproc_per_node=1 --master_port=48191 main_finetune.py \
     --batch_size 32 \
     --world_size 1 \
     --model resnet50 \

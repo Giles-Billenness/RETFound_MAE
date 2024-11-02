@@ -1,4 +1,4 @@
-python -m torch.distributed.launch --nproc_per_node=1 --master_port=48793 main_finetune.py \
+python -m torch.distributed.launch --nproc_per_node=1 --master_port=48493 main_finetune.py \
     --batch_size 32 \
     --world_size 1 \
     --model swinv2_largeNODECAY \
@@ -9,8 +9,8 @@ python -m torch.distributed.launch --nproc_per_node=1 --master_port=48793 main_f
     --data_path /home/gbillenn/DissProj/Data/mainCSV/filePathChanged/ \
     --dataset stroke \
     --task BinStr224SwinNODECAY \
-    --log_dir ../Results/BinStr224SwinNODECAY/ \
-    --output_dir ../Results/ \
+    --log_dir ../Results/Full_Stroke_Test/BinStr224SwinNODECAY/ \
+    --output_dir ../Results/Full_Stroke_Test/ \
     --finetune ../Weights/RETFound_cfp_weights.pth \
     --input_size 224
 
