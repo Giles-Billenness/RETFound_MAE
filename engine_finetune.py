@@ -92,7 +92,7 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
         risk_factors = samples['risk_factors'].to(device, non_blocking=True)
 
         if mixup_fn is not None:
-            samples, targets = mixup_fn(samples, targets)
+            images, targets = mixup_fn(images, targets)
 
         with torch.cuda.amp.autocast():
             outputs = model(images, risk_factors)

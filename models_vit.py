@@ -15,8 +15,11 @@ class VisionTransformer(timm.models.vision_transformer.VisionTransformer):
     """ Vision Transformer with support for global average pooling
     """
 
-    def __init__(self, head_dropout=0.0, num_risk_factors=5, global_pool=False, **kwargs):
+    def __init__(self, head_dropout=0.0, num_risk_factors=5, distil_neurons=32, global_pool=False, **kwargs):
         super(VisionTransformer, self).__init__(**kwargs)
+        self.distil_neurons = distil_neurons
+        # Global pooling to reduce spatial dimensions
+        self.global_pool_dimreduce = nn.AdaptiveAvgPool2d(1)
 
         self.global_pool = global_pool
         if self.global_pool:
@@ -26,14 +29,16 @@ class VisionTransformer(timm.models.vision_transformer.VisionTransformer):
 
             del self.norm  # remove the original norm
 
-        distil_neurons = 512  # 32
-
-        self.linear1 = nn.Linear(embed_dim, distil_neurons, bias=True)
-        self.activation = nn.ReLU(inplace=True)
-        self.dropout = nn.Dropout(p=head_dropout)
-        # +5 metadata features
-        self.linear2 = nn.Linear(
-            distil_neurons + num_risk_factors, 2, bias=True)
+        if (self.distil_neurons is not None):  # 32,512
+            self.linear1 = nn.Linear(embed_dim, self.distil_neurons, bias=True)
+            self.activation = nn.ReLU(inplace=True)
+            self.dropout = nn.Dropout(p=head_dropout)
+            # +5 metadata features
+            self.linear2 = nn.Linear(
+                self.distil_neurons + num_risk_factors, 2, bias=True)
+        else:
+            self.linear2 = nn.Linear(
+                embed_dim + num_risk_factors, 2, bias=True)
 
     def forward_features(self, x):
         B = x.shape[0]
@@ -58,12 +63,18 @@ class VisionTransformer(timm.models.vision_transformer.VisionTransformer):
         return outcome
 
     def forward_head(self, x, risk_factors):
-        # output_mi = self.head_mi(x)
-        x = self.linear1(x)
-        x = self.activation(x)
-        x = self.dropout(x)
-        x = torch.cat((x, risk_factors), dim=1)
-        x = self.linear2(x)
+        if self.distil_neurons is not None:
+            # output_mi = self.head_mi(x)
+            x = self.linear1(x)  # distil flattened embeddings
+            x = self.activation(x)
+            x = self.dropout(x)
+            x = torch.cat((x, risk_factors), dim=1)
+        else:
+            # print("x shape:", x.shape)  # [batch, 1024]
+            x = torch.cat((x, risk_factors), dim=1)
+            # print(f"Shape after concatenation: {x.shape}")
+
+        x = self.linear2(x)  # final layer
         return x
 
     def forward(self, x, risk_factors):

@@ -252,6 +252,7 @@ def main(args):
             num_classes=args.nb_classes,
             drop_path_rate=args.drop_path,
             global_pool=args.global_pool,
+            distil_neurons=None,  # 32,512,None
         )
 
     # Swinv2 large model with 256/384 image size - 197M Parameters
@@ -284,7 +285,9 @@ def main(args):
                                                         img_size=args.input_size,
                                                         window_size=7,
                                                         num_classes=0,  # to stop the model from adding the final layer
-                                                        drop_path_rate=args.drop_path,)
+                                                        drop_path_rate=args.drop_path,
+                                                        distil_neurons=None,  # 32,512
+                                                        )
         # Manually replace the head with nn.Identity() so the false head does nothing in the forward pass
         model.head = torch.nn.Identity()
         # print(model)
@@ -293,7 +296,9 @@ def main(args):
         from models_r50 import resnet50_META
         model = resnet50_META(pretrained=True,
                               num_classes=0,  # to stop the model from adding the final layer
-                              drop_path_rate=args.drop_path,)
+                              drop_path_rate=args.drop_path,
+                              distil_neurons=None,  # 32,512
+                              )
         # Manually replace the head with nn.Identity() so the false head does nothing in the forward pass
         model.head = torch.nn.Identity()
         # print(model)
@@ -364,7 +369,7 @@ def main(args):
     if args.distributed:
         model = torch.nn.parallel.DistributedDataParallel(
             model, device_ids=[args.gpu],
-            find_unused_parameters=True,  # Find issue here for Swin
+            # find_unused_parameters=True,  # Find issue here for Swin
         )
         model_without_ddp = model.module
 
